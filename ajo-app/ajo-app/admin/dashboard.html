@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1f4bdb"><link rel="manifest" href="../manifest.json"><link rel="icon" href="../assets/icons/icon.svg"><link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Mulish:wght@400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"><link rel="stylesheet" href="../css/style.css"><title>Admin dashboard — AJO</title><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script><script src="../js/app.js"></script></head><body>
+<div id="view"></div>
+<div class="modal" id="mp" role="dialog" aria-modal="true" aria-labelledby="mpt"><div class="card"><h3 id="mpt">Record disbursement</h3><p class="lead" style="margin:6px 0 0">Records a payout you already sent. AJO does not move money.</p>
+<form id="pf" novalidate><label for="d1">Recipient</label><input id="d1" readonly><label for="d2">Amount (₦)</label><input id="d2" type="number" min="1"><label for="d3">Bank name</label><input id="d3" placeholder="Access Bank"><label for="d4">Account name</label><input id="d4"><label for="d5">Account number</label><input id="d5" inputmode="numeric" maxlength="10"><label for="d6">Transaction reference</label><input id="d6"><label for="d7">Date</label><input id="d7" type="date"><label for="d8">Note (optional)</label><input id="d8">
+<div style="display:flex;gap:10px;margin-top:22px"><button type="button" class="btn line" onclick="modal('mp',false)">Cancel</button><button class="btn" style="flex:1">Confirm disbursement</button></div></form></div></div>
+<div class="modal" id="mc" role="dialog" aria-modal="true"><div class="card"><h3>Are you sure?</h3><p id="mcm"></p><div style="display:flex;gap:10px"><button class="btn line" onclick="modal('mc',false)">Cancel</button><button class="btn no" id="mcy">Yes, continue</button></div></div></div>
+<template id="t"><header class="head"><div><span class="role">Admin</span><h1 id="tn"></h1></div><button class="btn line sm" id="rs">Reset demo data</button></header>
+<section id="overview"><div class="grid" id="stats"></div>
+<div class="card" style="margin-top:14px"><b id="pt"></b><div class="bar"><span id="pb"></span></div><small id="ps" style="color:var(--mut)"></small></div>
+<div class="card" style="margin-top:14px"><b>Monthly collection</b><div style="height:220px"><canvas id="ch" aria-label="Monthly collection chart"></canvas></div></div></section>
+<section id="pending"><h2>Pending payments</h2><div class="card"><table><thead><tr><th>Member<th>Amount<th>Reference<th>Date<th>Status<th>Action</tr></thead><tbody id="pb2"></tbody></table></div></section>
+<section id="members"><div class="head" style="margin-bottom:12px"><h2>Members</h2><input id="q" type="search" placeholder="Search members" aria-label="Search members" style="max-width:260px"></div>
+<div class="card"><table><thead><tr><th>Member<th>Username<th>Monthly<th>This month<th>Total contributed</tr></thead><tbody id="mb"></tbody></table></div></section>
+<section id="payouts"><h2>Payouts</h2><div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap"><div><small style="color:var(--mut)">Current recipient · September 2026</small><h3 id="rc"></h3><span>Expected amount <b id="ra"></b></span></div><button class="btn" id="rb">Record disbursement</button></div>
+<h3 style="margin:22px 0 10px">Disbursement history</h3><div class="card"><table><thead><tr><th>Month<th>Recipient<th>Amount<th>Reference<th>Status</tr></thead><tbody id="db"></tbody></table></div>
+<h3 style="margin:22px 0 10px">Schedule</h3><div class="card"><ul class="tl" id="tl"></ul></div></section>
+<section id="invite"><h2>Invite members</h2><div class="card"><span class="badge b-info">Member invitation</span><p>Anyone joining with this link becomes a <b>member</b> of this team, never an admin.</p>
+<div class="linkbox"><input id="lk" readonly aria-label="Invitation link"><button class="btn" id="cp"><i class="fa-regular fa-copy"></i> Copy link</button><a class="btn ok" id="wa" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a></div>
+<p style="color:var(--mut);margin-bottom:0">10 invited · 10 joined · 0 pending</p></div></section></template>
+<script>
+shell('admin',[['overview','Overview','fa-house'],['pending','Payments','fa-clock'],['members','Members','fa-users'],['payouts','Payouts','fa-money-bill-transfer'],['invite','Invite','fa-link']]);
+const m=$('.main');m.append($('#t').content.cloneNode(true));let chart;
+const ask=(msg,fn)=>{$('#mcm').textContent=msg;$('#mcy').onclick=()=>{modal('mc',false);fn()};modal('mc')};
+function draw(){
+ const n=10,exp=S.team.amt*n,conf=confirmed(),pend=sum(S.pay.filter(p=>p.st==='wait'),p=>p.amt),paid=S.pay.filter(p=>p.st==='ok').length,cur=S.disb.some(d=>d.cur);
+ $('#tn').textContent=S.team.name;
+ $('#stats').innerHTML=[['Total members',n],['Monthly contribution',fmt(S.team.amt)],['Expected this month',fmt(exp)],['Confirmed',fmt(conf)],['Pending',fmt(pend)],['Current cycle','Month 6 of 10'],['Current recipient','John Doe']].map(x=>'<div class="card stat"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>').join('')+'<div class="card stat bal"><small>Ajo Balance (recorded)</small><b>'+fmt(balance())+'</b><small>Confirmed minus disbursements</small></div>';
+ $('#pt').textContent=paid+' of '+n+' members paid';$('#pb').style.width=paid/n*100+'%';$('#ps').textContent=fmt(conf)+' of '+fmt(exp)+' confirmed';
+ const pend2=S.pay.filter(p=>p.st==='wait');
+ $('#pb2').innerHTML=pend2.length?pend2.map(p=>'<tr><td data-label="Member">'+p.m+'<td data-label="Amount">'+fmt(p.amt)+'<td data-label="Reference">'+p.ref+'<td data-label="Date">'+p.date+'<td data-label="Status">'+badge('wait')+'<td><button class="btn ok sm" data-c="'+p.id+'">Confirm</button><button class="btn no sm" data-r="'+p.id+'">Reject</button></tr>').join(''):'<tr><td colspan="6" class="empty">No pending payments. You are all caught up.</tr>';
+ const q=$('#q').value.toLowerCase(),rows=NAMES.filter(x=>x.toLowerCase().includes(q));
+ $('#mb').innerHTML=rows.length?rows.map(x=>{const p=S.pay.find(y=>y.m===x),ok=p&&p.st==='ok';return '<tr><td data-label="Member"><b>'+x+'</b><td data-label="Username">@'+x.split(' ')[0].toLowerCase()+'<td data-label="Monthly">'+fmt(S.team.amt)+'<td data-label="This month">'+(p?badge(p.st):'<span class="badge b-bad">Unpaid</span>')+'<td data-label="Total">'+fmt(100000+(ok?S.team.amt:0))+'</tr>'}).join(''):'<tr><td colspan="5" class="empty">No member matches your search.</tr>';
+ $('#rc').textContent='John Doe';$('#ra').textContent=fmt(exp);$('#rb').disabled=cur;$('#rb').textContent=cur?'Disbursed':'Record disbursement';
+ $('#db').innerHTML=S.disb.map(d=>'<tr><td data-label="Month">'+d.mon+'<td data-label="Recipient">'+d.to+'<td data-label="Amount">'+fmt(d.amt)+'<td data-label="Reference">'+d.ref+'<td data-label="Status"><span class="badge b-ok">Disbursed</span></tr>').join('');
+ $('#tl').innerHTML=S.order.map(o=>'<li class="'+o[2]+'"><b>'+o[0]+'</b> → '+o[1]+(o[2]=='done'?' <span class="badge b-ok">Paid out</span>':o[2]=='now'?' <span class="badge b-info">Current</span>':'')+'</li>').join('');
+ if(window.Chart){chart&&chart.destroy();chart=new Chart($('#ch'),{type:'bar',data:{labels:['Apr','May','Jun','Jul','Aug','Sep'],datasets:[{data:[200000,200000,180000,200000,200000,conf],backgroundColor:'#1f4bdb',borderRadius:8}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'₦'+v/1000+'k'}}}}})}
+}
+m.addEventListener('click',e=>{const c=e.target.closest('[data-c]'),r=e.target.closest('[data-r]');
+ if(c){S.pay.find(p=>p.id==c.dataset.c).st='ok';save();draw();toast('Payment confirmed. Balance updated.')}
+ if(r)ask('Reject this payment? The member will be asked to resubmit.',()=>{S.pay.find(p=>p.id==r.dataset.r).st='bad';save();draw();toast('Payment rejected',1)})});
+$('#q').oninput=draw;$('#rs').onclick=()=>ask('Reset all demo data?',()=>{localStorage.removeItem(K);S=seed();S.user={role:'admin',name:'Adebayo Ogunleye',username:'adebayo',email:''};save();draw();toast('Demo data reset')});
+const link='https://ajo.app/join/'+S.team.code;$('#lk').value=link;$('#wa').href='https://wa.me/?text='+encodeURIComponent('Join our Ajo team "'+S.team.name+'" on AJO: '+link);
+$('#cp').onclick=()=>navigator.clipboard.writeText(link).then(()=>toast('Invitation link copied'),()=>toast('Copy failed. Select the link and copy it manually.',1));
+$('#rb').onclick=()=>{$('#d1').value='John Doe';$('#d2').value=S.team.amt*10;$('#d7').valueAsDate=new Date();modal('mp')};
+$('#pf').onsubmit=e=>{e.preventDefault();const a=+$('#d2').value,g=i=>$('#d'+i).value.trim();
+ if(!a||!g(3)||!g(4)||g(5).length!==10||!g(6))return toast('Complete bank name, account name, 10-digit account number and reference',1);
+ if(a>balance())return toast('Amount is more than the recorded Ajo Balance ('+fmt(balance())+')',1);
+ S.disb.unshift({to:'John Doe',mon:S.team.cycle,amt:a,ref:g(6),cur:true});S.order[1][2]='done';S.order[2][2]='now';save();modal('mp',false);draw();toast('Disbursement recorded. Balance updated.')};
+addEventListener('keydown',e=>e.key==='Escape'&&document.querySelectorAll('.modal.open').forEach(x=>x.classList.remove('open')));
+draw();
+</script></body></html>

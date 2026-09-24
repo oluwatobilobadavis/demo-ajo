@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1f4bdb"><link rel="manifest" href="../manifest.json"><link rel="icon" href="../assets/icons/icon.svg"><link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Mulish:wght@400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"><link rel="stylesheet" href="../css/style.css"><title>My dashboard — AJO</title><script src="../js/app.js"></script></head><body>
+<div id="view"></div>
+<template id="t"><header class="head"><div><span class="role">Member</span><h1 id="wl"></h1></div><span id="tm" style="font-weight:700;color:var(--mut)"></span></header>
+<section id="overview"><div class="grid" id="stats"></div><div class="card" style="margin-top:14px"><b id="pt"></b><div class="bar"><span id="pb"></span></div></div></section>
+<section id="pay"><h2>Make payment</h2><div class="card"><div class="bank" id="bk"></div><p>Transfer your contribution to the account above. After making your transfer, submit the transaction details below for admin confirmation.</p>
+<div id="ps"></div><form id="pf" novalidate><label for="a">Amount (₦)</label><input id="a" type="number" min="1"><label for="d">Payment date</label><input id="d" type="date"><label for="r">Transaction reference</label><input id="r" placeholder="e.g. TRX88421"><label for="f">Receipt (optional)</label><input id="f" type="file" accept="image/*,.pdf"><button class="btn block" style="margin-top:22px">Submit payment</button></form></div></section>
+<section id="history"><h2>Contribution history</h2><div class="card"><table><thead><tr><th>Month<th>Amount<th>Status</tr></thead><tbody id="hb"></tbody></table></div></section>
+<section id="schedule"><h2>Ajo schedule</h2><div class="card"><ul class="tl" id="tl"></ul></div></section></template>
+<script>
+shell('member',[['overview','Home','fa-house'],['pay','Pay','fa-money-bill-wave'],['history','History','fa-clock-rotate-left'],['schedule','Schedule','fa-calendar-days']]);
+$('.main').append($('#t').content.cloneNode(true));
+const me=()=>S.pay.find(p=>p.m===S.user.name),first=S.user.name.split(' ')[0];
+function draw(){
+ const p=me(),ok=p&&p.st==='ok',paid=S.pay.filter(x=>x.st==='ok').length,st=p?badge(p.st).replace('Confirmed','Paid'):'<span class="badge b-bad">Not paid</span>';
+ $('#wl').textContent='Welcome, '+first;$('#tm').textContent=S.team.name;
+ $('#stats').innerHTML=[['Monthly contribution',fmt(S.team.amt)],['My total contributions',fmt(100000+(ok?S.team.amt:0))],['Months completed',ok?'6/10':'5/10'],['This month',st],['Current recipient','John Doe'],['Ajo Balance (recorded)',fmt(balance())]].map(x=>'<div class="card stat"><small>'+x[0]+'</small><b style="font-size:'+(x[1].length>14?'18':'24')+'px">'+x[1]+'</b></div>').join('');
+ $('#pt').textContent=paid+'/10 members paid this month';$('#pb').style.width=paid*10+'%';
+ const b=S.team.bank;$('#bk').innerHTML='<span>Bank: <b>'+b.bank+'</b></span><span>Account name: <b>'+b.name+'</b></span><span>Account number: <b>'+b.no+'</b></span>';
+ $('#ps').innerHTML=p&&p.st!=='bad'?'<p class="badge '+(p.st==='ok'?'b-ok':'b-wait')+'">'+(p.st==='ok'?'Your September payment is confirmed.':'Payment submitted. Awaiting admin confirmation.')+'</p>':(p?'<p class="badge b-bad">Your last payment was rejected. Please resubmit.</p>':'');
+ $('#pf').style.display=p&&p.st!=='bad'?'none':'';
+ const h=[['September 2026',p?p.st:'wait'],...['August','July','June','May','April'].map(x=>[x+' 2026','ok'])];
+ $('#hb').innerHTML=h.slice(p?0:1).map(x=>'<tr><td data-label="Month">'+x[0]+'<td data-label="Amount">'+fmt(S.team.amt)+'<td data-label="Status">'+badge(x[1])+'</tr>').join('');
+ $('#tl').innerHTML=S.order.map(o=>'<li class="'+o[2]+'"><b>'+o[0]+'</b> → '+o[1]+(o[2]=='now'?' <span class="badge b-info">Current</span>':'')+'</li>').join('');
+}
+$('#a').value=S.team.amt;$('#d').valueAsDate=new Date();
+$('#pf').onsubmit=e=>{e.preventDefault();if(!+$('#a').value||!$('#r').value.trim()||!$('#d').value)return toast('Enter amount, date and transaction reference',1);
+ S.pay=S.pay.filter(x=>x.m!==S.user.name);S.pay.push({id:Date.now(),m:S.user.name,amt:+$('#a').value,ref:$('#r').value.trim(),date:$('#d').value,st:'wait'});save();draw();toast('Payment submitted. Awaiting admin confirmation.')};
+draw();
+</script></body></html>
